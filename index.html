@@ -22,6 +22,11 @@
     .media-container { width: 100%; position: relative; border-radius: 8px; overflow: hidden; background: #000; margin-bottom: 20px; display: none; aspect-ratio: 3/4; }
     video, img { width: 100%; height: 100%; object-fit: cover; display: block; }
     
+    /* Overlay Buttons (Snap & Switch) */
+    .snap-btn { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); border-radius: 50px; padding: 15px 30px; z-index: 10; }
+    .switch-btn { position: absolute; top: 15px; right: 15px; border-radius: 8px; padding: 8px 12px; background: rgba(0,0,0,0.6); font-size: 14px; z-index: 10; }
+    .switch-btn:hover { background: rgba(0,0,0,0.8); }
+
     /* Action Buttons */
     .action-buttons { display: flex; gap: 10px; justify-content: space-between; display: none; }
     .btn-secondary { background: #6c757d; }
@@ -43,7 +48,8 @@
 
     <div class="media-container" id="cameraContainer">
       <video id="video" autoplay playsinline></video>
-      <button id="snapBtn" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); border-radius: 50px; padding: 15px 30px;">Snap Photo</button>
+      <button id="switchCameraBtn" class="switch-btn">🔄 Switch</button>
+      <button id="snapBtn" class="snap-btn">Snap Photo</button>
     </div>
 
     <div class="media-container" id="previewContainer">
@@ -73,6 +79,7 @@
     const cameraContainer = document.getElementById('cameraContainer');
     const video = document.getElementById('video');
     const snapBtn = document.getElementById('snapBtn');
+    const switchCameraBtn = document.getElementById('switchCameraBtn');
     
     const previewContainer = document.getElementById('previewContainer');
     const photoPreview = document.getElementById('photoPreview');
@@ -85,34 +92,53 @@
 
     let stream = null;
     let base64Image = null;
+    let currentFacingMode = 'environment'; // Default to back camera
 
-    // 1. Start Camera
-    startBtn.addEventListener('click', async () => {
+    // Core Camera Initialization Function
+    async function startCamera() {
+      // Stop any existing streams before starting a new one
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: currentFacingMode }, 
+          audio: false 
+        });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Camera access denied or unavailable.");
+        console.error("Camera Error:", err);
+      }
+    }
+
+    // 1. Initial Start Button
+    startBtn.addEventListener('click', () => {
       const name = fileNameInput.value.trim();
       if (!name) {
         alert("Please enter a name first.");
         return;
       }
 
-      try {
-        // Request rear camera on mobile devices
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "environment" }, 
-          audio: false 
-        });
-        video.srcObject = stream;
-        
-        // Update UI
-        fileNameInput.disabled = true;
-        startBtn.disabled = true;
-        cameraContainer.style.display = 'block';
-      } catch (err) {
-        alert("Camera access denied or unavailable.");
-        console.error(err);
-      }
+      // Update UI
+      fileNameInput.disabled = true;
+      startBtn.disabled = true;
+      cameraContainer.style.display = 'block';
+      
+      // Boot up the camera
+      startCamera();
     });
 
-    // 2. Snap Photo
+    // 2. Switch Camera Direction
+    switchCameraBtn.addEventListener('click', () => {
+      // Toggle the mode
+      currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+      // Restart the stream with the new mode
+      startCamera();
+    });
+
+    // 3. Snap Photo
     snapBtn.addEventListener('click', () => {
       // Set canvas dimensions to match video frame
       canvas.width = video.videoWidth;
@@ -120,27 +146,42 @@
       
       // Draw video frame to canvas
       const context = canvas.getContext('2d');
+      
+      // If front camera is used, mirror the image horizontally so it acts like a mirror
+      if (currentFacingMode === 'user') {
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+      }
+      
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       // Convert to Base64
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      base64Image = dataUrl.split(',')[1]; // Strip the "data:image/jpeg;base64," prefix for Apps Script
+      base64Image = dataUrl.split(',')[1]; 
       
       // Show Preview, Hide Camera
       photoPreview.src = dataUrl;
       cameraContainer.style.display = 'none';
       previewContainer.style.display = 'block';
       actionButtons.style.display = 'flex';
+      
+      // Turn off camera momentarily to save battery
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
     });
 
-    // 3. Recapture Photo
+    // 4. Recapture Photo
     recaptureBtn.addEventListener('click', () => {
       previewContainer.style.display = 'none';
       actionButtons.style.display = 'none';
       cameraContainer.style.display = 'block';
+      
+      // Restart the camera feed with the last used facing mode
+      startCamera();
     });
 
-    // 4. Confirm & Upload
+    // 5. Confirm & Upload
     confirmBtn.addEventListener('click', async () => {
       actionButtons.style.display = 'none';
       loadingMsg.style.display = 'block';
@@ -174,7 +215,6 @@
 
     // Helper: Reset app to initial state after successful upload
     function resetApp() {
-      // Stop camera tracks
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
@@ -185,6 +225,7 @@
       
       previewContainer.style.display = 'none';
       loadingMsg.style.display = 'none';
+      cameraContainer.style.display = 'none';
     }
   </script>
 </body>
