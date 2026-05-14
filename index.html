@@ -24,7 +24,22 @@
     
     /* Overlay Buttons (Snap & Switch) */
     .snap-btn { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); border-radius: 50px; padding: 15px 30px; z-index: 10; }
-    .switch-btn { position: absolute; top: 15px; right: 15px; border-radius: 8px; padding: 8px 12px; background: rgba(0,0,0,0.6); font-size: 14px; z-index: 10; }
+    .switch-btn { 
+      position: absolute; 
+      top: 15px; 
+      right: 15px; 
+      border-radius: 50%; 
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6); 
+      font-size: 20px; 
+      z-index: 10; 
+      border: none;
+      color: white;
+    }
     .switch-btn:hover { background: rgba(0,0,0,0.8); }
 
     /* Action Buttons */
@@ -48,7 +63,7 @@
 
     <div class="media-container" id="cameraContainer">
       <video id="video" autoplay playsinline></video>
-      <button id="switchCameraBtn" class="switch-btn">🔄 Switch</button>
+      <button id="switchCameraBtn" class="switch-btn" aria-label="Switch Camera">🗘</button>
       <button id="snapBtn" class="snap-btn">Snap Photo</button>
     </div>
 
@@ -61,7 +76,7 @@
       <button id="confirmBtn" class="btn-success">Confirm & Upload</button>
     </div>
     
-    <p id="loading">Uploading to Google Drive...</p>
+    <p id="loading">Saving your photo...</p>
   </div>
 
   <canvas id="canvas" style="display:none;"></canvas>
@@ -92,7 +107,7 @@
 
     let stream = null;
     let base64Image = null;
-    let currentFacingMode = 'environment'; // Default to back camera
+    let currentFacingMode = 'user'; // Default to front camera
 
     // Core Camera Initialization Function
     async function startCamera() {
@@ -133,7 +148,7 @@
     // 2. Switch Camera Direction
     switchCameraBtn.addEventListener('click', () => {
       // Toggle the mode
-      currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+      currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
       // Restart the stream with the new mode
       startCamera();
     });
@@ -147,12 +162,7 @@
       // Draw video frame to canvas
       const context = canvas.getContext('2d');
       
-      // If front camera is used, mirror the image horizontally so it acts like a mirror
-      if (currentFacingMode === 'user') {
-        context.translate(canvas.width, 0);
-        context.scale(-1, 1);
-      }
-      
+      // Removed mirroring logic to capture exactly as seen by the sensor (non-mirrored)
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       // Convert to Base64
