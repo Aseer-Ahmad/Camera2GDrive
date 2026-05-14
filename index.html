@@ -210,7 +210,7 @@
         const result = await response.json();
         
         if(result.status === 'success') {
-          alert("Success! Photo saved to Google Drive.");
+          alert("Success! Your photo is now saved.");
           resetApp();
         } else {
           throw new Error(result.message);
